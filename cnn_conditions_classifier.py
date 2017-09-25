@@ -13,12 +13,12 @@ from os.path import isfile
 
 from keras.preprocessing import sequence
 from keras.models import Sequential, load_model
-from keras.layers import Dense, Dropout, AveragePooling2D, MaxPooling2D, Conv2D, GlobalMaxPooling2D
+from keras.layers import Dense, Dropout, AveragePooling2D, Conv2D, GlobalMaxPooling2D
 from keras.utils import np_utils
-from keras.metrics import categorical_accuracy, binary_accuracy, mae
+from keras.metrics import binary_accuracy, mae
 
 
-def create_model(model_path):
+def create_model():
     model = Sequential()
     model.add(Conv2D(filters=128,
                      kernel_size=(4, 4),
@@ -33,19 +33,6 @@ def create_model(model_path):
     model.add(Dense(16))
     model.add(Dropout(0.2))
     model.add(Dense(2, activation='sigmoid'))
-
-    # Compile model
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='adam',
-                  metrics=['accuracy', mae, binary_accuracy])
-
-    # Fit model on training data
-    start = time.time()
-    model.fit(X_train, Y_train, batch_size=32, epochs=10, verbose=1)
-    end = time.time()
-    print('Learning time: ', (end - start))
-
-    model.save(model_path)
 
     return model
 
@@ -101,6 +88,18 @@ if isfile(model_path):
     model = load_model(model_path)
 else:
     model = create_model(model_path)
+    # Compile model
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy', mae, binary_accuracy])
+
+    # Fit model on training data
+    start = time.time()
+    model.fit(X_train, Y_train, batch_size=32, epochs=10, verbose=1)
+    end = time.time()
+    print('Learning time: ', (end - start))
+
+    model.save(model_path)
 
 print(model.summary())
 
