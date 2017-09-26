@@ -17,7 +17,7 @@ def create_str_dataset(pathpos, pathneg, pathout_dataset, pathout_labels):
             f.write(str(line)+'\n')
 
 
-def update_array(dataset, labels, path, value_class, we_model):
+def update_array(dataset, labels, path, value_class):
     for line in open(path, encoding='utf-8'):
         # vline = [[get_we(we_model,t) for t in elem] for elem in eval(line)]
         # vline = [[t for t in elem] for elem in eval(line)]
@@ -26,5 +26,5 @@ def update_array(dataset, labels, path, value_class, we_model):
         labels.append(value_class)
 
 
-create_str_dataset('C:/datasets/es/positives.tok', 'C:/datasets/es/negatives.tok', 'C:/datasets/es/dataset.txt',
-                   'C:/datasets/es/labels.txt')
+create_str_dataset('C:/datasets/es/positives.tok', 'C:/datasets/es/negatives.tok', 'C:/datasets/es/dataset',
+                   'C:/datasets/es/dataset.labels')

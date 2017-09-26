@@ -3,7 +3,9 @@ import json, os
 
 def convert_dir_list(dir):
     for dname in os.listdir(dir):
-        save_iterable(Converter(os.path.join(dir, dname)), os.path.join(dir, dname, 'sentences.tok'))
+        path = os.path.join(dir, dname)
+        if (os.path.isdir(path)):
+            save_iterable(Converter(path), os.path.join(path, 'sentences.tok'))
 
 
 def get_array_from_row(row):
@@ -36,6 +38,6 @@ class Converter(object):
                             yield get_array_from_row(row)
 
 
-dir = 'datasets/es'
+dir = 'C:/datasets/es'
 
 convert_dir_list(dir)

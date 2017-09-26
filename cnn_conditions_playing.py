@@ -69,7 +69,7 @@ y = np.array([line for line in open(labels_path, encoding='utf-8')])
 end = time.time()
 print('Time loading labels: ', (end - start))
 
-y = y.astype('float32')
+y = np_utils.to_categorical(y)
 # Padding
 X = sequence.pad_sequences(X, maxlen=maxlen)
 
@@ -77,9 +77,6 @@ X = X.reshape(X.shape[0], 1, X.shape[1], X.shape[2])
 # Split dataset into train and test
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=7)
-Y_train = np_utils.to_categorical(y_train, 2)
-
-Y_test = np_utils.to_categorical(y_test, 2)
 print('X_train shape:', X_train.shape)
 
 print('X_test shape:', X_test.shape)
@@ -87,15 +84,15 @@ print('X_test shape:', X_test.shape)
 if isfile(model_path):
     model = load_model(model_path)
 else:
-    model = create_model(model_path)
+    model = create_model()
     # Compile model
     model.compile(loss='categorical_crossentropy',
                   optimizer='adam',
-                  metrics=['accuracy', mae, binary_accuracy])
+                  metrics=['acc', mae, binary_accuracy])
 
     # Fit model on training data
     start = time.time()
-    model.fit(X_train, Y_train, batch_size=32, epochs=10, verbose=1)
+    model.fit(X_train, y_train, batch_size=32, epochs=1, verbose=1)
     end = time.time()
     print('Learning time: ', (end - start))
 
@@ -104,6 +101,6 @@ else:
 print(model.summary())
 
 # Evaluate model on test data
-score = model.evaluate(X_test, Y_test, verbose=1)
+score = model.evaluate(X_test, y_test, verbose=1)
 
 print('Score: ', score)
