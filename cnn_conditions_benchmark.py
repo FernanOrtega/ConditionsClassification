@@ -145,9 +145,11 @@ if __name__ == '__main__':
 
             precision_recall_curve(model.name, k, y_test, y_pred)
 
+            model.save('models/'+model.name+'k'+str(k))
             # Reset learnt weights to execute new experiment
             model.set_weights(init_weights)
             k += 1
+
 
     df = pd.DataFrame(data=performance_results[1:], columns=performance_results[0])
     df.set_index(performance_results[0][0])
