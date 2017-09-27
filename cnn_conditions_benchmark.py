@@ -20,7 +20,7 @@ from keras.metrics import categorical_accuracy, mae
 
 import matplotlib.pyplot as plt
 
-from model_creator import ModelContainer1
+from model_creator import ModelContainer1, ModelContainer3, ModelContainer4, ModelContainer5
 from model_creator import ModelContainer2
 
 np.random.seed(123)
@@ -46,8 +46,11 @@ def load_dataset(dataset_path, labels_path):
 
 def get_model_containers():
     models = list()
-    models.append(ModelContainer1())
-    models.append(ModelContainer2())
+    # models.append(ModelContainer1())
+    # # models.append(ModelContainer2())
+    # models.append(ModelContainer3())
+    # models.append(ModelContainer4())
+    models.append(ModelContainer5())
 
     return models
 
@@ -79,10 +82,10 @@ def precision_recall_curve(model_name, k, y_test, y_pred):
     plt.ylabel('Precision')
     plt.ylim([0.0, 1.05])
     plt.xlim([0.0, 1.0])
-    plt.title('2-class Precision-Recall curve (model=' + str(model_name) + ', k=' + str(k) + ': AUC={0:0.2f}'.format(
+    plt.title('2-class PR curve (model=' + str(model_name) + ', k=' + str(k) + ': AUC={0:0.2f}'.format(
         average_precision))
 
-    plt.savefig('results/img/p-r-curve-'+model_name+'-'+str(k)+'.png')
+    plt.savefig('results/img/p-r-curve-' + model_name + '-' + str(k) + '.png')
 
 
 def cm_measures(y_test, y_pred):
@@ -92,18 +95,23 @@ def cm_measures(y_test, y_pred):
 
 if __name__ == '__main__':
     wv_model_path = 'models/w2v-ciaoreviews'
-    dataset_path = 'C:/datasets/es/dataset'
-    labels_path = 'C:/datasets/es/dataset.labels'
-    results_path = 'results/benchmark-results.csv'
+    dataset_path = 'C:/datasets/es/dataset.lite'
+    labels_path = 'C:/datasets/es/dataset.labels.lite'
+    results_path = 'results/benchmark-results.lite.csv'
+
+    n_k_splits = 2
+    batch_size = 100
+    epochs = 1
 
     X, Y = load_dataset(dataset_path, labels_path)
     wv_model = load_wv_model(wv_model_path)
 
     performance_results = list()
-    performance_results.append(['Model', 'K', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_cat_acc', 'tp', 'fn', 'fp', 'tn',
-                                'P', 'R', 'F1', 'AUC-ROC', 'learning_time', 'test_time'])
+    performance_results.append(
+        ['Model', 'K', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_cat_acc', 'tp', 'fn', 'fp', 'tn',
+         'P', 'R', 'F1', 'AUC-ROC', 'learning_time', 'test_time'])
 
-    folds = StratifiedKFold(n_splits=4, random_state=7, shuffle=False)
+    folds = StratifiedKFold(n_splits=n_k_splits, random_state=7, shuffle=False)
     splits = [(train_index, test_index) for train_index, test_index in folds.split(X, Y)]
 
     # Testing
@@ -124,32 +132,36 @@ if __name__ == '__main__':
 
             # Fit model on training data
             start = time.time()
-            model.fit(X_train, Y_train, batch_size=100, epochs=10, verbose=1)
+            model.fit(X_train, Y_train, batch_size=batch_size, epochs=epochs, verbose=1)
             end = time.time()
             learn_time = end - start
             score = model.evaluate(X_test, Y_test, verbose=1)
 
             start = time.time()
-            y_pred = model.predict(X_test)
+            y_pred_prob = model.predict(X_test)
             end = time.time()
             predict_time = end - start
-            y_pred = np.array([np.argmax(i) for i in y_pred])
+            y_pred = np.array([np.argmax(i) for i in y_pred_prob])
 
             y_test = np.array([np.argmax(i) for i in Y_test])
             cf = confusion_matrix(y_test, y_pred)
             p, r, f1, auc_roc = cm_measures(y_test, y_pred)
 
+            print('Model: ',model.name,', k=',k)
+            print('P=',p,', R=', r, 'F1=', f1)
+
             performance_results.append(
                 [model.name, k, score[0], score[1], score[2], score[3], cf[1][1], cf[1][0], cf[0][1],
                  cf[0][0], p, r, f1, auc_roc, learn_time, predict_time])
 
+            y_pred_prob = np.array([v[1] for v in y_pred_prob])
+
             precision_recall_curve(model.name, k, y_test, y_pred)
 
-            model.save('models/'+model.name+'k'+str(k))
+            model.save('models/' + model.name + 'k' + str(k))
             # Reset learnt weights to execute new experiment
             model.set_weights(init_weights)
             k += 1
-
 
     df = pd.DataFrame(data=performance_results[1:], columns=performance_results[0])
     df.set_index(performance_results[0][0])
