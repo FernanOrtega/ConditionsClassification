@@ -62,6 +62,7 @@ class ModelContainer1(ModelContainer):
         return model, X_preprocessed
 
 
+# This model doesn't improve ModelContainer1
 class ModelContainer2(ModelContainer):
     def create_model(self, X, wv_model):
         X_preprocessed = super(ModelContainer2, self).inputs_nocontext_emb_layer(X, wv_model)
@@ -144,6 +145,7 @@ class ModelContainer4(ModelContainer):
         return model, X_preprocessed
 
 
+# Bad effectiveness results: acc=0.38
 class ModelContainer5(ModelContainer):
     def create_model(self, X, wv_model):
         X_preprocessed = super(ModelContainer5, self).inputs_nocontext_array_emb(X, wv_model)
@@ -154,26 +156,26 @@ class ModelContainer5(ModelContainer):
         input = Input(shape=(1, X_preprocessed.shape[2], X_preprocessed.shape[3]))
 
         x_1_c1 = Conv2D(filters=128,
-                         kernel_size=(2, int(X_preprocessed.shape[3] / 2)),
-                         activation='relu')(input)
+                        kernel_size=(2, int(X_preprocessed.shape[3] / 2)),
+                        activation='relu')(input)
         x_1_c1 = MaxPooling2D()(x_1_c1)
         x_1_c1 = GlobalMaxPooling2D()(x_1_c1)
 
         x_1_c2 = Conv2D(filters=64,
-                         kernel_size=(4, int(X_preprocessed.shape[3] / 4)),
-                         activation='relu')(input)
+                        kernel_size=(4, int(X_preprocessed.shape[3] / 4)),
+                        activation='relu')(input)
         x_1_c2 = MaxPooling2D()(x_1_c2)
         x_1_c2 = GlobalMaxPooling2D()(x_1_c2)
 
         x_1_c3 = Conv2D(filters=32,
-                         kernel_size=(8, int(X_preprocessed.shape[3] / 8)),
-                         activation='relu')(input)
+                        kernel_size=(8, int(X_preprocessed.shape[3] / 8)),
+                        activation='relu')(input)
         x_1_c3 = MaxPooling2D()(x_1_c3)
         x_1_c3 = GlobalMaxPooling2D()(x_1_c3)
 
         x_1_c4 = Conv2D(filters=16,
-                         kernel_size=(16, int(X_preprocessed.shape[3] / 16)),
-                         activation='relu')(input)
+                        kernel_size=(16, int(X_preprocessed.shape[3] / 16)),
+                        activation='relu')(input)
         x_1_c4 = MaxPooling2D()(x_1_c4)
         x_1_c4 = GlobalMaxPooling2D()(x_1_c4)
 
@@ -198,26 +200,26 @@ class ModelContainer6(ModelContainer):
         input = Input(shape=(1, X_preprocessed.shape[2], X_preprocessed.shape[3]))
 
         x_1_c1 = Conv2D(filters=64,
-                         kernel_size=(2, 2),
-                         activation='relu')(input)
+                        kernel_size=(2, 2),
+                        activation='relu')(input)
         x_1_c1 = MaxPooling2D()(x_1_c1)
         x_1_c1 = GlobalMaxPooling2D()(x_1_c1)
 
         x_1_c2 = Conv2D(filters=64,
-                         kernel_size=(4, 4),
-                         activation='relu')(input)
+                        kernel_size=(4, 4),
+                        activation='relu')(input)
         x_1_c2 = MaxPooling2D()(x_1_c2)
         x_1_c2 = GlobalMaxPooling2D()(x_1_c2)
 
         x_1_c3 = Conv2D(filters=64,
-                         kernel_size=(8, 8),
-                         activation='relu')(input)
+                        kernel_size=(8, 8),
+                        activation='relu')(input)
         x_1_c3 = MaxPooling2D()(x_1_c3)
         x_1_c3 = GlobalMaxPooling2D()(x_1_c3)
 
         x_1_c4 = Conv2D(filters=64,
-                         kernel_size=(16, 16),
-                         activation='relu')(input)
+                        kernel_size=(16, 16),
+                        activation='relu')(input)
         x_1_c4 = MaxPooling2D()(x_1_c4)
         x_1_c4 = GlobalMaxPooling2D()(x_1_c4)
 
