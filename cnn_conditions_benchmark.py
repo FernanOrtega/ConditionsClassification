@@ -19,7 +19,8 @@ from keras.metrics import categorical_accuracy, mae
 
 import matplotlib.pyplot as plt
 
-from model_creator import ModelContainer1, ModelContainer3, ModelContainer4, ModelContainer5
+from model_creator import ModelContainer1, ModelContainer3, ModelContainer4, ModelContainer5, ModelContainer7, \
+    ModelContainer8, ModelContainer9
 from model_creator import ModelContainer2
 
 np.random.seed(123)
@@ -45,12 +46,10 @@ def load_dataset(dataset_path, labels_path):
 
 def get_model_containers():
     models = list()
-    models.append(ModelContainer1())
     # models.append(ModelContainer2())
-    models.append(ModelContainer3())
-    models.append(ModelContainer4())
-    # models.append(ModelContainer5())
-    # models.append(ModelContainer6())
+    # models.append(ModelContainer7())
+    # models.append(ModelContainer8())
+    models.append(ModelContainer9())
 
     return models
 
@@ -90,7 +89,6 @@ def precision_recall_curve(model_name, y_test, y_pred, k=-1):
         plt.title('2-class PR curve (model=' + str(model_name) + ', k=' + str(k) + ': AUC={0:0.2f}'
                   .format(average_precision))
         plt.savefig('results/img/p-r-curve-' + model_name + '-' + str(k) + '.png')
-
 
 
 def cm_measures(y_test, y_pred):
@@ -168,6 +166,7 @@ def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path):
     Y = np_utils.to_categorical(Y, 2)
 
     for model_container in models_containers:
+        print(type(model_container).__name__)
         model, X_preprocessed = model_container.create_model(X, wv_model)
         X_train, X_test, Y_train, Y_test = train_test_split(X_preprocessed, Y, test_size=test_size, random_state=7,
                                                             stratify=Y)
@@ -220,13 +219,16 @@ def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path):
 
 if __name__ == '__main__':
     wv_model_path = 'models/w2v-ciaoreviews'
-    dataset_path = 'C:/datasets/es/dataset'
-    labels_path = 'C:/datasets/es/dataset.labels'
-    results_path = 'results/benchmark-results.csv'
+    # dataset_path = 'C:/datasets/es/dataset'
+    dataset_path = 'C:/datasets/es/dataset.lite'
+    # labels_path = 'C:/datasets/es/dataset.labels'
+    labels_path = 'C:/datasets/es/dataset.labels.lite'
+    # results_path = 'results/benchmark-results.28-09-2017.csv'
+    results_path = 'results/benchmark-results.lite.csv'
 
     n_k_splits = 2
     batch_size = 50
-    epochs = 15
+    epochs = 1
     test_size = 0.25
 
     X, Y = load_dataset(dataset_path, labels_path)
