@@ -8,7 +8,7 @@ from keras.layers import Dense, Dropout, AveragePooling2D, Conv2D, GlobalMaxPool
 from keras.layers import concatenate
 from keras.preprocessing import sequence
 
-maxlen = 80
+maxlen = 50
 
 
 class ModelContainer(object):
@@ -67,11 +67,6 @@ class ModelContainer1(ModelContainer):
                          kernel_size=(4, 4),
                          activation='relu',
                          input_shape=(1, X_preprocessed.shape[2], X_preprocessed.shape[3])))
-        # model.add(AveragePooling2D(pool_size=(8, 8)))
-        # model.add(Dropout(0.5))
-        # model.add(Conv2D(filters=256,
-        #                  kernel_size=(2, 2),
-        #                  activation='relu'))
         model.add(GlobalMaxPooling2D())
         model.add(Dense(16))
         model.add(Dropout(0.2))
@@ -96,11 +91,6 @@ class ModelContainer2(ModelContainer):
         x = (Conv1D(filters=128,
                     kernel_size=4,
                     activation='relu'))(embedded_sequences)
-        # x = (AveragePooling1D(pool_size=8))(x)
-        # x = (Dropout(0.5))(x)
-        # x = (Conv1D(filters=256,
-        #                  kernel_size=2,
-        #                  activation='relu'))(x)
         x = (GlobalMaxPooling1D())(x)
         x = (Dense(16))(x)
         x = (Dropout(0.2))(x)
@@ -268,7 +258,7 @@ class ModelContainer7(ModelContainer):
         x = (Conv1D(filters=128,
                     kernel_size=4,
                     activation='relu'))(embedded_sequences)
-        x = (AveragePooling1D(pool_size=8))(x)
+        x = (AveragePooling1D(pool_size=4))(x)
         x = (Dropout(0.2))(x)
         x = (Conv1D(filters=256,
                     kernel_size=2,
@@ -363,7 +353,7 @@ class ModelContainer9(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -428,7 +418,7 @@ class ModelContainer10(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -493,7 +483,7 @@ class ModelContainer11(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -544,7 +534,7 @@ class ModelContainer12(ModelContainer):
         x_L = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_L)
-        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (AveragePooling1D(pool_size=4))(x_L)
         x_L = (Dropout(0.2))(x_L)
         x_L = (Conv1D(filters=256,
                        kernel_size=2,
@@ -566,7 +556,7 @@ class ModelContainer12(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -588,7 +578,7 @@ class ModelContainer12(ModelContainer):
         x_R = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_R)
-        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (AveragePooling1D(pool_size=4))(x_R)
         x_R = (Dropout(0.2))(x_R)
         x_R = (Conv1D(filters=256,
                        kernel_size=2,
@@ -627,7 +617,7 @@ class ModelContainer13(ModelContainer):
         x_L = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_L)
-        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (AveragePooling1D(pool_size=4))(x_L)
         x_L = (Dropout(0.2))(x_L)
         x_L = (Conv1D(filters=256,
                        kernel_size=2,
@@ -649,7 +639,7 @@ class ModelContainer13(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -671,7 +661,7 @@ class ModelContainer13(ModelContainer):
         x_R = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_R)
-        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (AveragePooling1D(pool_size=4))(x_R)
         x_R = (Dropout(0.2))(x_R)
         x_R = (Conv1D(filters=256,
                        kernel_size=2,
@@ -710,7 +700,7 @@ class ModelContainer14(ModelContainer):
         x_L = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_L)
-        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (AveragePooling1D(pool_size=4))(x_L)
         x_L = (Dropout(0.2))(x_L)
         x_L = (Conv1D(filters=256,
                        kernel_size=2,
@@ -732,7 +722,7 @@ class ModelContainer14(ModelContainer):
         x_NC = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_NC)
-        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (AveragePooling1D(pool_size=4))(x_NC)
         x_NC = (Dropout(0.2))(x_NC)
         x_NC = (Conv1D(filters=256,
                        kernel_size=2,
@@ -754,7 +744,7 @@ class ModelContainer14(ModelContainer):
         x_R = Conv1D(filters=128,
                       kernel_size=4,
                       activation='relu')(emb_seq_R)
-        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (AveragePooling1D(pool_size=4))(x_R)
         x_R = (Dropout(0.2))(x_R)
         x_R = (Conv1D(filters=256,
                        kernel_size=2,
