@@ -1,8 +1,11 @@
 import warnings
 
+from keras.callbacks import EarlyStopping, Callback
+from six import iteritems
+
 warnings.filterwarnings(action='ignore', category=UserWarning, module='gensim')
 
-import time
+import time, os, pickle, gc
 import numpy as np
 
 from gensim.models import Word2Vec
@@ -15,13 +18,15 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import roc_auc_score
 
 from keras.utils import np_utils
-from keras.metrics import categorical_accuracy, mae
+from keras.metrics import mae, binary_accuracy
 
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-from model_creator import ModelContainer1, ModelContainer3, ModelContainer4, ModelContainer5, ModelContainer7, \
-    ModelContainer8, ModelContainer9
-from model_creator import ModelContainer2
+from model_creator import ModelContainer1, ModelContainer2, ModelContainer3, ModelContainer4, ModelContainer5, ModelContainer7, \
+    ModelContainer8, ModelContainer9, ModelContainer14, ModelContainer13, ModelContainer12, ModelContainer11, \
+    ModelContainer10, ModelContainer6
 
 np.random.seed(123)
 
@@ -46,10 +51,12 @@ def load_dataset(dataset_path, labels_path):
 
 def get_model_containers():
     models = list()
-    # models.append(ModelContainer2())
-    # models.append(ModelContainer7())
-    # models.append(ModelContainer8())
     models.append(ModelContainer9())
+    models.append(ModelContainer10())
+    models.append(ModelContainer11())
+    models.append(ModelContainer12())
+    models.append(ModelContainer13())
+    models.append(ModelContainer14())
 
     return models
 
@@ -64,7 +71,7 @@ def load_wv_model(wv_model_path):
     return we_model
 
 
-def precision_recall_curve(model_name, y_test, y_pred, k=-1):
+def precision_recall_curve(model_name, y_test, y_pred, img_folder_path, k=-1):
     from sklearn.metrics import precision_recall_curve
     from sklearn.metrics import average_precision_score
 
@@ -84,11 +91,11 @@ def precision_recall_curve(model_name, y_test, y_pred, k=-1):
     if k < 0:
         plt.title('2-class PR curve (model=' + str(model_name) + ': AUC={0:0.2f}'
                   .format(average_precision))
-        plt.savefig('results/img/p-r-curve-' + model_name + '.png')
+        plt.savefig(os.path.join(img_folder_path, 'p-r-curve-' + model_name + '.png'))
     else:
         plt.title('2-class PR curve (model=' + str(model_name) + ', k=' + str(k) + ': AUC={0:0.2f}'
                   .format(average_precision))
-        plt.savefig('results/img/p-r-curve-' + model_name + '-' + str(k) + '.png')
+        plt.savefig(os.path.join(img_folder_path, 'p-r-curve-' + model_name + '-' + str(k) + '.png'))
 
 
 def cm_measures(y_test, y_pred):
@@ -96,7 +103,7 @@ def cm_measures(y_test, y_pred):
            roc_auc_score(y_test, y_pred)
 
 
-def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, results_path):
+def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, results_path, history_path, img_folder_path, models_folder_path):
     performance_results = list()
     # Testing
     models_containers = get_model_containers()
@@ -106,9 +113,9 @@ def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, resu
     for model_container in models_containers:
         model, X_preprocessed = model_container.create_model(X, wv_model)
         # Compile model
-        model.compile(loss='categorical_crossentropy',
+        model.compile(loss='binary_crossentropy',
                       optimizer='adam',
-                      metrics=['accuracy', mae, categorical_accuracy])
+                      metrics=['accuracy', mae, binary_accuracy])
         print(model.summary())
         init_weights = model.get_weights()
         k = 1
@@ -117,9 +124,22 @@ def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, resu
             Y_train, Y_test = Y[train_index], Y[test_index]
 
             # Fit model on training data
+            early_stop_callback = EarlyStopping(monitor='loss', min_delta=0.01, patience=5, verbose=1, mode='auto')
+            callback_log_path = os.path.join(history_path, model.name + '-' + str(k) + '.log')
+            with open(callback_log_path, 'w') as f:
+                def print_fcn(s):
+                    f.write(s)
+                    f.write("\n")
             start = time.time()
-            model.fit(X_train, Y_train, batch_size=batch_size, epochs=epochs, verbose=1)
+            with open(callback_log_path, 'w') as f:
+                def print_fcn(s):
+                    f.write(s)
+                    f.write("\n")
+
+                model.fit(X_train, Y_train, batch_size=batch_size, epochs=epochs, verbose=2,
+                          callbacks=[early_stop_callback, LoggingCallback(print_fcn)])
             end = time.time()
+
             learn_time = end - start
             score = model.evaluate(X_test, Y_test, verbose=1)
 
@@ -142,23 +162,25 @@ def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, resu
 
             y_pred_prob = np.array([v[1] for v in y_pred_prob])
 
-            precision_recall_curve(model.name, y_test, y_pred_prob, k)
+            precision_recall_curve(model.name, y_test, y_pred_prob, img_folder_path, k)
 
-            model.save('models/' + model.name + 'k' + str(k))
+            # model.save(os.path.join(models_folder_path, model.name + 'k' + str(k)))
             # Reset learnt weights to execute new experiment
             model.set_weights(init_weights)
             k += 1
+        del model
+        gc.collect()
     import csv
     with open(results_path, 'w') as outcsv:
         # configure writer to write standard csv file
         writer = csv.writer(outcsv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
-        writer.writerow(['Model', 'K', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_cat_acc', 'tp', 'fn', 'fp', 'tn',
+        writer.writerow(['Model', 'K', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_bin_acc', 'tp', 'fn', 'fp', 'tn',
                          'P', 'R', 'F1', 'AUC-ROC', 'learning_time', 'test_time'])
         for item in performance_results:
             writer.writerow(item)
 
 
-def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path):
+def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path, history_path, img_folder_path, models_folder_path):
     performance_results = list()
     # Testing
     models_containers = get_model_containers()
@@ -171,14 +193,21 @@ def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path):
         X_train, X_test, Y_train, Y_test = train_test_split(X_preprocessed, Y, test_size=test_size, random_state=7,
                                                             stratify=Y)
         # Compile model
-        model.compile(loss='categorical_crossentropy',
+        model.compile(loss='binary_crossentropy',
                       optimizer='adam',
-                      metrics=['accuracy', mae, categorical_accuracy])
+                      metrics=['accuracy', mae, binary_accuracy])
         print(model.summary())
 
         # Fit model on training data
+        early_stop_callback = EarlyStopping(monitor='loss', min_delta=0.01, patience=5, verbose=1, mode='auto')
+        callback_log_path = os.path.join(history_path, model.name + '.log')
         start = time.time()
-        model.fit(X_train, Y_train, batch_size=batch_size, epochs=epochs, verbose=1)
+        with open(callback_log_path, 'w') as f:
+            def print_fcn(s):
+                f.write(s)
+                f.write("\n")
+            model.fit(X_train, Y_train, batch_size=batch_size, epochs=epochs, verbose=2,
+                      callbacks=[early_stop_callback, LoggingCallback(print_fcn)])
         end = time.time()
 
         learn_time = end - start
@@ -203,36 +232,62 @@ def experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path):
 
         y_pred_prob = np.array([v[1] for v in y_pred_prob])
 
-        precision_recall_curve(model.name, y_test, y_pred_prob)
+        precision_recall_curve(model.name, y_test, y_pred_prob, img_folder_path)
 
-        model.save('models/' + model.name)
+        # model.save(os.path.join(models_folder_path, model.name))
+
+        del model
+        gc.collect()
 
     import csv
     with open(results_path, 'w') as outcsv:
         # configure writer to write standard csv file
         writer = csv.writer(outcsv, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator='\n')
-        writer.writerow(['Model', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_cat_acc', 'tp', 'fn', 'fp', 'tn',
+        writer.writerow(['Model', 'keras_loss', 'keras_acc', 'keras_mae', 'keras_bin_acc', 'tp', 'fn', 'fp', 'tn',
                          'P', 'R', 'F1', 'AUC-ROC', 'learning_time', 'test_time'])
         for item in performance_results:
             writer.writerow(item)
 
 
-if __name__ == '__main__':
-    wv_model_path = 'models/w2v-ciaoreviews'
-    # dataset_path = 'C:/datasets/es/dataset'
-    dataset_path = 'C:/datasets/es/dataset.lite'
-    # labels_path = 'C:/datasets/es/dataset.labels'
-    labels_path = 'C:/datasets/es/dataset.labels.lite'
-    # results_path = 'results/benchmark-results.28-09-2017.csv'
-    results_path = 'results/benchmark-results.lite.csv'
+class LoggingCallback(Callback):
 
-    n_k_splits = 2
-    batch_size = 50
-    epochs = 1
+    def __init__(self, print_fcn=print,
+                 format_epoch="Epoch: {} - {}",
+                 format_keyvalue="{}: {:0.4f}",
+                 format_separator=" - "):
+        Callback.__init__(self)
+        self.print_fcn = print_fcn
+        self.format_epoch = format_epoch
+        self.format_keyvalue = format_keyvalue
+        self.format_separator = format_separator
+
+    def on_epoch_end(self, epoch, logs={}):
+        values = self.format_separator.join(self.format_keyvalue.format(k, v) for k, v in iteritems(logs))
+        msg = self.format_epoch.format(epoch, values)
+        self.print_fcn(msg)
+
+
+if __name__ == '__main__':
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    print(dir_path)
+
+    wv_model_path = os.path.join(dir_path, 'models/w2v-ciaoreviews')
+    dataset_path = os.path.join(dir_path, 'datasets/dataset')
+    labels_path = os.path.join(dir_path, 'datasets/dataset.labels')
+    results_path = os.path.join(dir_path, 'results/benchmark-results-05-10-17.csv')
+    history_path = os.path.join(dir_path, 'results/history/')
+    img_folder_path = os.path.join(dir_path, 'results/img')
+    models_folder_path = os.path.join(dir_path, 'models/')
+
+    n_k_splits = 4
+    batch_size = 30
+    epochs = 50
     test_size = 0.25
 
     X, Y = load_dataset(dataset_path, labels_path)
     wv_model = load_wv_model(wv_model_path)
 
-    experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path)
-    # experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, results_path)
+    # experiments(X, Y, wv_model, test_size, batch_size, epochs, results_path, history_path, img_folder_path, models_folder_path)
+    experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, results_path, history_path, img_folder_path, models_folder_path)

@@ -4,11 +4,11 @@ from keras import Input
 from keras.engine import Model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, AveragePooling2D, Conv2D, GlobalMaxPooling2D, Conv1D, \
-    GlobalMaxPooling1D, MaxPooling2D, Flatten, Masking, AveragePooling1D, Lambda, MaxPooling1D
+    GlobalMaxPooling1D, MaxPooling2D, Flatten, Masking, AveragePooling1D, Lambda, MaxPooling1D, average, maximum
 from keras.layers import concatenate
 from keras.preprocessing import sequence
 
-maxlen = 500
+maxlen = 80
 
 
 class ModelContainer(object):
@@ -19,6 +19,16 @@ class ModelContainer(object):
                                    np.array([vocab.get(t).index for t in row[2]]),
                                    np.array([vocab.get(t).index for t in row[3]])])
                          for row in X])
+
+    def inputs_context_emb_layer_nc(self, X, wv_model):
+        vocab = wv_model.wv.vocab
+        result = list()
+        for row in X:
+            l = [vocab.get(t).index for t in row[0]]
+            nc = [vocab.get(t).index for t in np.concatenate([row[1], row[2]])]
+            r = [vocab.get(t).index for t in row[3]]
+            result.append([l, nc, r])
+        return np.array(result)
 
     def inputs_nocontext_array_emb(self, X, wv_model):
         return np.array([np.array([wv_model[t] for t in np.concatenate([row[1], row[2]])]) for row in X])
@@ -326,11 +336,205 @@ class ModelContainer8(ModelContainer):
 # Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
 class ModelContainer9(ModelContainer):
     def create_model(self, X, wv_model):
-        X_preprocessed = super(ModelContainer9, self).inputs_context_emb_layer(X, wv_model)
+        X_preprocessed = super(ModelContainer9, self).inputs_context_emb_layer_nc(X, wv_model)
         X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
                                                           truncating='post', value=-1) for subX_prep in X_preprocessed])
 
-        input = Input(shape=(4, maxlen), dtype='int32')
+        input = Input(shape=(3, maxlen), dtype='int32')
+
+        # Left Context branch
+        input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
+        embedding_layer_L = wv_model.wv.get_embedding_layer()
+        mask_L = Masking(mask_value=-1)(input_L)
+        emb_seq_L = embedding_layer_L(mask_L)
+        x_L = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_L)
+        x_L = Dropout(0.4)(x_L)
+        x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
+
+        # Connective branch
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
+
+        # Right context branch
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
+        embedding_layer_R = wv_model.wv.get_embedding_layer()
+        mask_R = Masking(mask_value=-1)(input_R)
+        emb_seq_R = embedding_layer_R(mask_R)
+        x_R = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_R)
+        x_R = Dropout(0.4)(x_R)
+        x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
+
+        x = maximum([x_L, x_R])
+        x = concatenate([x_NC, x])
+        preds = (Dense(2, activation='sigmoid'))(x)
+        model = Model(input, preds, name='Model9_contexts')
+
+        return model, X_preprocessed
+
+
+# Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
+class ModelContainer10(ModelContainer):
+    def create_model(self, X, wv_model):
+        X_preprocessed = super(ModelContainer10, self).inputs_context_emb_layer_nc(X, wv_model)
+        X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
+                                                          truncating='post', value=-1) for subX_prep in X_preprocessed])
+
+        input = Input(shape=(3, maxlen), dtype='int32')
+
+        # Left Context branch
+        input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
+        embedding_layer_L = wv_model.wv.get_embedding_layer()
+        mask_L = Masking(mask_value=-1)(input_L)
+        emb_seq_L = embedding_layer_L(mask_L)
+        x_L = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_L)
+        x_L = Dropout(0.4)(x_L)
+        x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
+
+        # Connective branch
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
+
+        # Right context branch
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
+        embedding_layer_R = wv_model.wv.get_embedding_layer()
+        mask_R = Masking(mask_value=-1)(input_R)
+        emb_seq_R = embedding_layer_R(mask_R)
+        x_R = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_R)
+        x_R = Dropout(0.4)(x_R)
+        x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
+
+        x = average([x_L, x_R])
+        x = concatenate([x_NC, x])
+        preds = (Dense(2, activation='sigmoid'))(x)
+        model = Model(input, preds, name='Model10_contexts')
+
+        return model, X_preprocessed
+
+
+# Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
+class ModelContainer11(ModelContainer):
+    def create_model(self, X, wv_model):
+        X_preprocessed = super(ModelContainer11, self).inputs_context_emb_layer_nc(X, wv_model)
+        X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
+                                                          truncating='post', value=-1) for subX_prep in X_preprocessed])
+
+        input = Input(shape=(3, maxlen), dtype='int32')
+
+        # Left Context branch
+        input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
+        embedding_layer_L = wv_model.wv.get_embedding_layer()
+        mask_L = Masking(mask_value=-1)(input_L)
+        emb_seq_L = embedding_layer_L(mask_L)
+        x_L = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_L)
+        x_L = Dropout(0.4)(x_L)
+        x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
+
+        # Connective branch
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
+
+        # Right context branch
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
+        embedding_layer_R = wv_model.wv.get_embedding_layer()
+        mask_R = Masking(mask_value=-1)(input_R)
+        emb_seq_R = embedding_layer_R(mask_R)
+        x_R = Conv1D(filters=8,
+                     kernel_size=3,
+                     activation='relu')(emb_seq_R)
+        x_R = Dropout(0.4)(x_R)
+        x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
+
+        x = concatenate([x_L, x_NC, x_R])
+        preds = (Dense(2, activation='sigmoid'))(x)
+        model = Model(input, preds, name='Model11_contexts')
+
+        return model, X_preprocessed
+
+
+# Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
+class ModelContainer12(ModelContainer):
+    def create_model(self, X, wv_model):
+        X_preprocessed = super(ModelContainer12, self).inputs_context_emb_layer_nc(X, wv_model)
+        X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
+                                                          truncating='post', value=-1) for subX_prep in X_preprocessed])
+
+        input = Input(shape=(3, maxlen), dtype='int32')
 
         # Left Context branch
         input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
@@ -338,45 +542,234 @@ class ModelContainer9(ModelContainer):
         mask_L = Masking(mask_value=-1)(input_L)
         emb_seq_L = embedding_layer_L(mask_L)
         x_L = Conv1D(filters=128,
-                     kernel_size=4,
-                     activation='relu')(emb_seq_L)
+                      kernel_size=4,
+                      activation='relu')(emb_seq_L)
+        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (Dropout(0.2))(x_L)
+        x_L = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_L)
+        x_L = (Dropout(0.5))(x_L)
+        x_L = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_L)
         x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dense(16, activation='tanh')(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
 
         # Connective branch
-        input_N = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
-        embedding_layer_N = wv_model.wv.get_embedding_layer()
-        mask_N = Masking(mask_value=-1)(input_N)
-        emb_seq_N = embedding_layer_N(mask_N)
-        x_N = Conv1D(filters=128,
-                     kernel_size=4,
-                     activation='relu')(emb_seq_N)
-        x_N = GlobalMaxPooling1D()(x_N)
-
-        # Condition branch
-        input_C = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
-        embedding_layer_C = wv_model.wv.get_embedding_layer()
-        mask_C = Masking(mask_value=-1)(input_C)
-        emb_seq_C = embedding_layer_C(mask_C)
-        x_C = Conv1D(filters=128,
-                     kernel_size=4,
-                     activation='relu')(emb_seq_C)
-        x_C = GlobalMaxPooling1D()(x_C)
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
 
         # Right context branch
-        input_R = Lambda(lambda x: x[:, 3], output_shape=(maxlen,))(input)
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
         embedding_layer_R = wv_model.wv.get_embedding_layer()
         mask_R = Masking(mask_value=-1)(input_R)
         emb_seq_R = embedding_layer_R(mask_R)
         x_R = Conv1D(filters=128,
-                     kernel_size=4,
-                     activation='relu')(emb_seq_R)
+                      kernel_size=4,
+                      activation='relu')(emb_seq_R)
+        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (Dropout(0.2))(x_R)
+        x_R = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_R)
+        x_R = (Dropout(0.5))(x_R)
+        x_R = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_R)
         x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dense(16, activation='tanh')(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
 
-        x = concatenate([x_L, x_N, x_C, x_R])
-        x = Dense(64)(x)
-        x = Dropout(0.3)(x)
-        x = Dense(16)(x)
+        x = maximum([x_L, x_R])
+        x = concatenate([x_NC, x])
         preds = (Dense(2, activation='sigmoid'))(x)
-        model = Model(input, preds, name='Model9_contexts')
+        model = Model(input, preds, name='Model12_contexts')
+
+        return model, X_preprocessed
+
+
+# Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
+class ModelContainer13(ModelContainer):
+    def create_model(self, X, wv_model):
+        X_preprocessed = super(ModelContainer13, self).inputs_context_emb_layer_nc(X, wv_model)
+        X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
+                                                          truncating='post', value=-1) for subX_prep in X_preprocessed])
+
+        input = Input(shape=(3, maxlen), dtype='int32')
+
+        # Left Context branch
+        input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
+        embedding_layer_L = wv_model.wv.get_embedding_layer()
+        mask_L = Masking(mask_value=-1)(input_L)
+        emb_seq_L = embedding_layer_L(mask_L)
+        x_L = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_L)
+        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (Dropout(0.2))(x_L)
+        x_L = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_L)
+        x_L = (Dropout(0.5))(x_L)
+        x_L = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_L)
+        x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dense(16, activation='tanh')(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
+
+        # Connective branch
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
+
+        # Right context branch
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
+        embedding_layer_R = wv_model.wv.get_embedding_layer()
+        mask_R = Masking(mask_value=-1)(input_R)
+        emb_seq_R = embedding_layer_R(mask_R)
+        x_R = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_R)
+        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (Dropout(0.2))(x_R)
+        x_R = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_R)
+        x_R = (Dropout(0.5))(x_R)
+        x_R = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_R)
+        x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dense(16, activation='tanh')(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
+
+        x = average([x_L, x_R])
+        x = concatenate([x_NC, x])
+        preds = (Dense(2, activation='sigmoid'))(x)
+        model = Model(input, preds, name='Model13_contexts')
+
+        return model, X_preprocessed
+
+
+# Taking contexts into account (4 convolution branches and one concatenation step), embedding layer, padding and mask
+class ModelContainer14(ModelContainer):
+    def create_model(self, X, wv_model):
+        X_preprocessed = super(ModelContainer14, self).inputs_context_emb_layer_nc(X, wv_model)
+        X_preprocessed = np.array([sequence.pad_sequences(subX_prep, maxlen=maxlen, padding='post',
+                                                          truncating='post', value=-1) for subX_prep in X_preprocessed])
+
+        input = Input(shape=(3, maxlen), dtype='int32')
+
+        # Left Context branch
+        input_L = Lambda(lambda x: x[:, 0], output_shape=(maxlen,))(input)
+        embedding_layer_L = wv_model.wv.get_embedding_layer()
+        mask_L = Masking(mask_value=-1)(input_L)
+        emb_seq_L = embedding_layer_L(mask_L)
+        x_L = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_L)
+        x_L = (AveragePooling1D(pool_size=8))(x_L)
+        x_L = (Dropout(0.2))(x_L)
+        x_L = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_L)
+        x_L = (Dropout(0.5))(x_L)
+        x_L = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_L)
+        x_L = GlobalMaxPooling1D()(x_L)
+        x_L = Dense(16, activation='tanh')(x_L)
+        x_L = Dropout(0.2)(x_L)
+        x_L = Dense(2, activation='sigmoid')(x_L)
+
+        # Connective branch
+        input_NC = Lambda(lambda x: x[:, 1], output_shape=(maxlen,))(input)
+        embedding_layer_NC = wv_model.wv.get_embedding_layer()
+        mask_NC = Masking(mask_value=-1)(input_NC)
+        emb_seq_NC = embedding_layer_NC(mask_NC)
+        x_NC = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_NC)
+        x_NC = (AveragePooling1D(pool_size=8))(x_NC)
+        x_NC = (Dropout(0.2))(x_NC)
+        x_NC = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_NC)
+        x_NC = (Dropout(0.5))(x_NC)
+        x_NC = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_NC)
+        x_NC = GlobalMaxPooling1D()(x_NC)
+        x_NC = Dense(16, activation='tanh')(x_NC)
+        x_NC = Dropout(0.2)(x_NC)
+        x_NC = Dense(2, activation='sigmoid')(x_NC)
+
+        # Right context branch
+        input_R = Lambda(lambda x: x[:, 2], output_shape=(maxlen,))(input)
+        embedding_layer_R = wv_model.wv.get_embedding_layer()
+        mask_R = Masking(mask_value=-1)(input_R)
+        emb_seq_R = embedding_layer_R(mask_R)
+        x_R = Conv1D(filters=128,
+                      kernel_size=4,
+                      activation='relu')(emb_seq_R)
+        x_R = (AveragePooling1D(pool_size=8))(x_R)
+        x_R = (Dropout(0.2))(x_R)
+        x_R = (Conv1D(filters=256,
+                       kernel_size=2,
+                       activation='relu'))(x_R)
+        x_R = (Dropout(0.5))(x_R)
+        x_R = (Conv1D(filters=32,
+                       kernel_size=8,
+                       activation='relu'))(x_R)
+        x_R = GlobalMaxPooling1D()(x_R)
+        x_R = Dense(16, activation='tanh')(x_R)
+        x_R = Dropout(0.2)(x_R)
+        x_R = Dense(2, activation='sigmoid')(x_R)
+
+        x = concatenate([x_L, x_NC, x_R])
+        preds = (Dense(2, activation='sigmoid'))(x)
+        model = Model(input, preds, name='Model14_contexts')
 
         return model, X_preprocessed
