@@ -20,6 +20,7 @@ def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, resu
     splits = [(train_index, test_index) for train_index, test_index in folds.split(X, Y)]
     Y = np_utils.to_categorical(Y, 2)
     for model_container in models_containers:
+        # TODO: execute this code in an independent thread by means of multiprocessing module
         print(type(model_container).__name__)
         model, X_preprocessed = model_container.create_model(X, wv_model)
         # Compile model
@@ -36,10 +37,6 @@ def experiments_with_K_fold(X, Y, wv_model, n_k_splits, batch_size, epochs, resu
             # Fit model on training data
             early_stop_callback = EarlyStopping(monitor='loss', min_delta=0.01, patience=5, verbose=1, mode='auto')
             callback_log_path = os.path.join(history_path, model.name + '-' + str(k) + '.log')
-            with open(callback_log_path, 'w') as f:
-                def print_fcn(s):
-                    f.write(s)
-                    f.write("\n")
             start = time.time()
             with open(callback_log_path, 'w') as f:
                 def print_fcn(s):

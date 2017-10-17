@@ -1,4 +1,4 @@
-import os
+import os, sys
 from data_loaders import load_dataset, load_wv_model
 from experiments_launchers import experiments_with_K_fold
 from model_creator import ModelContainer9, ModelContainer14, ModelContainer13, ModelContainer12, ModelContainer11, \
@@ -20,9 +20,11 @@ def get_model_containers():
 
 if __name__ == '__main__':
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    if len(sys.argv) >= 2:
+        import theano.sandbox.cuda
+        theano.sandbox.cuda.use(sys.argv[1])
 
-    print(dir_path)
+    dir_path = os.path.dirname(os.path.realpath(__file__))
 
     wv_model_path = os.path.join(dir_path, 'models/w2v-ciaoreviews')
     dataset_path = os.path.join(dir_path, 'datasets/dataset')
